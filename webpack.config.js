@@ -10,7 +10,10 @@ module.exports = (env, argv) => {
     return [
         {
             entry: "./src/index.ts",
-            output: "app.[chunkhash].js",
+            output: {
+                path: path.resolve(__dirname, "build"),
+                filename: "app.[chunkhash].js",
+            },
             devtool: isProd ? undefined : "inline-source-map",
             devServer: {
                 watchFiles: ["src/*.css"],

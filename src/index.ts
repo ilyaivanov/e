@@ -223,7 +223,7 @@ function tokenizeCode(code: string) {
     while (token !== ts.SyntaxKind.EndOfFileToken) {
         tokens.push({
             text: scanner.getTokenText(),
-            type: token,
+            type: token as unknown as SyntaxKind,
         });
         token = scanner.scan();
     }
