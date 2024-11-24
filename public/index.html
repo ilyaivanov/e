@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Editor</title>
+        <link rel="icon" type="image/x-icon" href="./favicon.svg" />
+        <style>
+            body {
+                margin: 0;
+            }
+            canvas {
+                display: block;
+
+                /* because macos scroll event is bouncing canvas */
+                position: fixed;
+            }
+
+            /* #preview {
+                position: fixed;
+                z-index: 100;
+
+                width: 50vw;
+                height: 50vw;
+
+                top: 0;
+                right: 0;
+            } */
+        </style>
+        <script src="https://unpkg.com/typescript@latest/lib/typescript.js"></script>
+        <script src="https://unpkg.com/prettier@2.6.2/standalone.js"></script>
+    </head>
+    <body>
+        <!-- <iframe
+            id="preview"
+            src="https://slapstuk.web.app/"
+            frameborder="0"
+        ></iframe> -->
+    </body>
+</html>
