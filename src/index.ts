@@ -15,6 +15,7 @@ import type { Scanner, Diagnostic, LanguageService } from "typescript";
 import { SyntaxKind } from "./localTs";
 import { colors, theme, typography } from "./visual";
 import { createLangService, updateRootFileCode } from "./langService";
+import { code } from "./code";
 
 const view = { x: 0, y: 0 };
 const canvas = document.createElement("canvas");
@@ -46,9 +47,7 @@ let letterIndex = 0;
 type Mode = "normal" | "insert";
 let mode: Mode = "normal";
 
-let myCode = `const message: string = 'hello there';
-console.log(message);
-`;
+let myCode = code;
 
 let languageService: LanguageService;
 let tokens: { text: string; type: SyntaxKind }[] = [];
@@ -102,7 +101,6 @@ function render() {
     ctx.fillRect(cursorX, cursorY, ms.width, height + 2);
 
     let line = 0;
-    let lineStart = 0;
 
     for (let i = 0; i < tokens.length; i++) {
         const { text, type } = tokens[i];
@@ -125,7 +123,6 @@ function render() {
             y += height * lineHeight;
             x = 20;
             chars += 1;
-            lineStart = chars;
 
             line++;
         } else {
@@ -133,12 +130,12 @@ function render() {
 
             if (theme[type]) color = theme[type];
 
-            if (
+            const isFunctionCall =
                 i < tokens.length - 1 &&
                 type == SyntaxKind.Identifier &&
-                tokens[i + 1].type == SyntaxKind.OpenParenToken
-            )
-                color = theme[SyntaxKind.FunctionDeclaration]!;
+                tokens[i + 1].type == SyntaxKind.OpenParenToken;
+
+            if (isFunctionCall) color = colors.functionName;
 
             ctx.fillStyle = color;
             ctx.fillText(text, x, y);
@@ -165,8 +162,12 @@ function removeCurrentChar() {
     myCode = removeChar(myCode, letterIndex);
     onCodeChanged();
 }
+function insertStrAt(str: string, ch: string, at: number) {
+    return str.slice(0, at) + ch + str.slice(at);
+}
+
 function insertChar(ch: string) {
-    myCode = myCode.slice(0, letterIndex) + ch + myCode.slice(letterIndex);
+    myCode = insertStrAt(myCode, ch, letterIndex);
     letterIndex += ch.length;
     onCodeChanged();
 }
@@ -187,6 +188,9 @@ document.addEventListener("keydown", (e) => {
         }
         if (e.code == "KeyW")
             letterIndex = jumpWordForward(myCode, letterIndex);
+        if (e.code == "KeyD") {
+            deleteLine();
+        }
         if (e.code == "KeyR") runCode();
         if (e.code == "KeyB") letterIndex = jumpWordBack(myCode, letterIndex);
 
@@ -195,6 +199,8 @@ document.addEventListener("keydown", (e) => {
         if (e.code == "Backspace") removeCharFromLeft();
         if (e.code == "Enter") insertChar("\n");
         if (e.code == "Space") insertChar(" ");
+        if (e.code == "KeyO" && e.shiftKey) insertLineBefore();
+        else if (e.code == "KeyO") insertLineAfter();
         if (e.code == "KeyS") {
             formatCode();
         }
@@ -276,58 +282,6 @@ function onCodeChanged() {
     logPerfResult("Update", start);
 }
 
-// Promise.all(filesToLoad.map((name) => loadFile(name))).then(() => {
-// render();
-
-// Example Usage
-// const code = `type Mode = "foo" | "bar";\nlet mode: Mode = "";\n`;
-// // Position is inside the empty string (at character 34)
-// const cursorPosition = code.indexOf('""') + 1;
-
-// const suggestions = getSuggestionsAtPosition(code, cursorPosition);
-// console.log(suggestions);
-// console.log(checkCodeForErrors(code));
-// });
-// go();
-
-// console.log(checkCodeForErrors(code));
-// console.log(tokenizeCode(c));
-
-// document.addEventListener("keydown", async (e) => {
-//     if (e.code == "KeyA") {
-//         try {
-//             const [fileHandle] = await window.showOpenFilePicker({
-//                 types: [
-//                     {
-//                         description: "Text Files",
-//                         accept: {
-//                             "text/plain": [".txt"],
-//                         },
-//                     },
-//                 ],
-//                 multiple: false, // Set to true for selecting multiple files
-//             });
-
-//             const file = await fileHandle.getFile();
-//             console.log(file.name, file.type, file.size);
-
-//             const reader = new FileReader();
-
-//             reader.onload = (event) => {
-//                 console.log(event.target!.result); // File contents as text
-//             };
-
-//             reader.onerror = () => {
-//                 console.error("File could not be read.");
-//             };
-
-//             reader.readAsText(file); // Read file as text
-//         } catch (e) {
-//             console.log(e);
-//         }
-//     }
-// });
-
 function showFooter() {
     const line = getCurrentLine(myCode, letterIndex);
     const lineOffset = getCurrentOffset(myCode, letterIndex);
@@ -360,6 +314,7 @@ function formatCode() {
         const options = {
             parser: "typescript",
             plugins: [require("prettier/parser-typescript")],
+            tabWidth: 4,
         };
         myCode = (window as any).prettier.format(myCode, options);
         updateModel();
@@ -370,4 +325,36 @@ function formatCode() {
             throw e;
         }
     }
+}
+
+function insertLineBefore() {
+    const currentLineStart =
+        letterIndex == 0 ? 0 : myCode.lastIndexOf("\n", letterIndex - 1) + 1;
+
+    myCode = insertStrAt(myCode, "\n", currentLineStart);
+    letterIndex = currentLineStart;
+
+    mode = "insert";
+    updateModel();
+}
+
+function insertLineAfter() {
+    const currentLineEnd = myCode.indexOf("\n", letterIndex);
+    myCode = insertStrAt(myCode, "\n", currentLineEnd);
+    letterIndex = currentLineEnd + 1;
+
+    mode = "insert";
+    updateModel();
+}
+
+function deleteLine() {
+    const currentLineStart =
+        letterIndex == 0 ? 0 : myCode.lastIndexOf("\n", letterIndex - 1) + 1;
+    const currentLineEnd = myCode.indexOf("\n", letterIndex);
+
+    myCode =
+        myCode.slice(0, currentLineStart) + myCode.slice(currentLineEnd + 1);
+    letterIndex = currentLineStart;
+
+    updateModel();
 }

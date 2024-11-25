@@ -46,3 +46,42 @@ self.addEventListener("message", (event) => {
     // Send a response back to the main thread
     if (event.source) event.source.postMessage("Hello from Service Worker");
 });
+
+//
+// Read file from fs
+//
+
+// document.addEventListener("keydown", async (e) => {
+//     if (e.code == "KeyA") {
+//         try {
+//             const [fileHandle] = await window.showOpenFilePicker({
+//                 types: [
+//                     {
+//                         description: "Text Files",
+//                         accept: {
+//                             "text/plain": [".txt"],
+//                         },
+//                     },
+//                 ],
+//                 multiple: false, // Set to true for selecting multiple files
+//             });
+
+//             const file = await fileHandle.getFile();
+//             console.log(file.name, file.type, file.size);
+
+//             const reader = new FileReader();
+
+//             reader.onload = (event) => {
+//                 console.log(event.target!.result); // File contents as text
+//             };
+
+//             reader.onerror = () => {
+//                 console.error("File could not be read.");
+//             };
+
+//             reader.readAsText(file); // Read file as text
+//         } catch (e) {
+//             console.log(e);
+//         }
+//     }
+// });

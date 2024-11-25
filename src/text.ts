@@ -58,7 +58,7 @@ export function moveCursorUpOneLine(code: string, letterIndex: number): number {
     return newLetterIndex;
 }
 
-const whitespaceChars = [" ", "\n", ":", "."];
+const whitespaceChars = [" ", "\n", ":", ".", "(", ")"];
 export function jumpWordBack(code: string, letterIndex: number): number {
     if (letterIndex <= 0) return 0;
 
