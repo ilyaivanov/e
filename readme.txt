@@ -10,6 +10,7 @@ Global topics
 
 Problems
  - I don't know how to parse html/css + other code like C, GLSL, C++ (god forbid)
+ - I need to figure out how to add typpes from npm packages (@types/react, etc)
  - Do I need Desktop App (Electron/Tauri) or I can fit this into a PWA
     - Main concert for this is file system access. For PWA you need permission each time you launch app
 
@@ -25,7 +26,7 @@ Prettier
 Backlog
    - Autoscroll when going down or up (postponed)
    - Move typescript access to service worker for snappy UI
-   - Try to preserve cursor position after formatting. VS Code is not doing a perfect job, but quite a good job at this
+   - Try to preserve cursor position after formatting. VS Code is not doing a perfect job, but quite a good job at this (use formatWithCursor from prettier)
    - Add 'desired' column position, so that when you move vertically, your cursor stays on the same col if posible
    - Multiple cursors
    - Cache d.ts and js files (make it working as PWA offline using another service worker)
@@ -90,5 +91,8 @@ Timeline
   26.11.2024
    ✔ Apply code fix for errors
 
-  27.11.2024
-   - 
+  29.11.2024
+    Plan for the day
+      - Open/save file (show file path at the bottom)
+      - Start implementing web worker for lang service 
+   - Load code from the  

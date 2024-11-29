@@ -9,7 +9,29 @@ module.exports = (env, argv) => {
     const isProd = argv.mode === "production";
     return [
         {
-            entry: "./src/index.ts",
+            entry: { worker: "./src/worker.ts" },
+            output: {
+                path: path.resolve(__dirname, "build"),
+                filename: "worker.js",
+            },
+            devtool: isProd ? undefined : "inline-source-map",
+            module: {
+                rules: [
+                    {
+                        test: /\.ts?$/,
+                        use: {
+                            loader: "ts-loader",
+                        },
+                        exclude: /node_modules/,
+                    },
+                ],
+            },
+            resolve: {
+                extensions: [".tsx", ".ts", ".js"],
+            },
+        },
+        {
+            entry: { main: "./src/index.ts" },
             output: {
                 path: path.resolve(__dirname, "build"),
                 filename: "app.[chunkhash].js",
@@ -54,10 +76,13 @@ module.exports = (env, argv) => {
                             from: "node_modules/typescript/lib/lib.*",
                             to: "lib/[name][ext]",
                         },
-                        // { from: "src/shaders", to: "." },
+                        { from: "lib", to: "./dep" },
                     ],
                 }),
-                new HtmlWebpackPlugin({ template: "public/index.html" }),
+                new HtmlWebpackPlugin({
+                    template: "public/index.html",
+                    chunks: ["main"],
+                }),
                 // new webpack.DefinePlugin({
                 //     ISOLATED: argv.env.isolated,
                 // }),

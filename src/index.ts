@@ -10,15 +10,15 @@ import {
 
 const PERF_TIME = false;
 
-type Scanner = any;
-type Diagnostic = any;
-type LanguageService = any;
-// import type { Scanner, Diagnostic, LanguageService } from "typescript";
+import type { Scanner, Diagnostic, LanguageService } from "typescript";
 
 import { SyntaxKind } from "./localTs";
 import { colors, spacings, theme, typography } from "./visual";
 import { createLangService, updateRootFileCode } from "./langService";
+
 import { code } from "./code";
+import { openFile } from "./file";
+import { formatCode } from "./formating";
 
 const view = { x: 0, y: 0 };
 const canvas = document.createElement("canvas");
@@ -44,6 +44,11 @@ function onResize() {
 }
 
 onResize();
+
+window.addEventListener("resize", (e) => {
+    onResize();
+    render();
+});
 
 let letterIndex = 0;
 
@@ -203,7 +208,8 @@ function showSuggestions() {
     }
 }
 
-document.addEventListener("keydown", (e) => {
+//TODO : open and save to a file
+document.addEventListener("keydown", async (e) => {
     if (mode == "normal") {
         if (e.code == "KeyL") {
             if (letterIndex < myCode.length) letterIndex++;
@@ -230,7 +236,10 @@ document.addEventListener("keydown", (e) => {
         if (e.code == "Backspace") removeCharFromLeft();
         if (e.code == "Enter") insertChar("\n");
         if (e.code == "Space") insertChar(" ");
-        if (e.code == "KeyO" && e.shiftKey) insertLineBefore();
+        if (e.code == "KeyO" && e.metaKey) {
+            e.preventDefault();
+            loadFile();
+        } else if (e.code == "KeyO" && e.shiftKey) insertLineBefore();
         else if (e.code == "KeyO") insertLineAfter();
         if (e.code == "Period") {
             const diagnostics =
@@ -277,8 +286,12 @@ document.addEventListener("keydown", (e) => {
         if (e.code == "Enter") insertChar("\n");
         else if (e.code == "Escape") {
             mode = "normal";
-            formatCode();
-            onCodeChanged();
+            const res = await formatCode(myCode, letterIndex);
+            if (res) {
+                myCode = res.formatted;
+                letterIndex = res.cursorOffset;
+                onCodeChanged();
+            }
         } else if (e.code == "Backspace") removeCharFromLeft();
         //Period and meta are not working
         else if (e.code == "Slash" && e.metaKey) {
@@ -376,24 +389,6 @@ function runCode() {
     eval(code);
 }
 
-function formatCode() {
-    try {
-        const options = {
-            parser: "typescript",
-            plugins: [require("prettier/parser-typescript")],
-            tabWidth: 4,
-        };
-        myCode = (window as any).prettier.format(myCode, options);
-        updateModel();
-    } catch (e) {
-        if (e instanceof SyntaxError) {
-            console.log(e.message);
-        } else {
-            throw e;
-        }
-    }
-}
-
 function insertLineBefore() {
     const currentLineStart =
         letterIndex == 0 ? 0 : myCode.lastIndexOf("\n", letterIndex - 1) + 1;
@@ -426,4 +421,12 @@ function deleteLine() {
     letterIndex = currentLineStart;
 
     onCodeChanged();
+}
+
+async function loadFile() {
+    const res = await openFile();
+    if (res) {
+        myCode = res.content;
+        onCodeChanged();
+    }
 }
