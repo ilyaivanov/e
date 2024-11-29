@@ -14,10 +14,7 @@ export async function formatCode(code: string, cursorOffset: number) {
             ],
             tabWidth: 4,
         };
-        console.log("before", code);
-        const res = await formatWithCursor(code, options);
-        console.log("after", res);
-        return res;
+        return await formatWithCursor(code, options);
     } catch (e) {
         if (e instanceof SyntaxError) {
             console.log(e.message);

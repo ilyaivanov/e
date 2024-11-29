@@ -95,4 +95,6 @@ Timeline
     Plan for the day
       - Open/save file (show file path at the bottom)
       - Start implementing web worker for lang service 
-   - Load code from the  
+   ✔ Load code from the file
+   ✔ Fix issue with prettier. Use formatWithCursor to preserve cursor
+   - Save code to the file 

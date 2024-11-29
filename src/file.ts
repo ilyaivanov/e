@@ -1,9 +1,10 @@
-type File = {
-    path: string;
-    handle: FileSystemFileHandle;
+export type EditorFile = {
+    name: string;
+    handle: FileSystemFileHandle | undefined;
     content: string;
 };
-export async function openFile(): Promise<File | undefined> {
+console.log(32);
+export async function openFile(): Promise<EditorFile | undefined> {
     try {
         const [fileHandle] = await window.showOpenFilePicker({
             types: [
@@ -26,7 +27,7 @@ export async function openFile(): Promise<File | undefined> {
             };
             reader.onload = (event) => {
                 resolve({
-                    path: "fuck",
+                    name: file.name,
                     handle: fileHandle,
                     content: event.target!.result as string,
                 });
@@ -37,5 +38,16 @@ export async function openFile(): Promise<File | undefined> {
     } catch (e) {
         console.info(e);
         return undefined;
+    }
+}
+
+export async function writeFile(file: EditorFile) {
+    if (file.handle) {
+        const writable = await file.handle.createWritable();
+        try {
+            await writable.write(file.content);
+        } finally {
+            await writable.close();
+        }
     }
 }

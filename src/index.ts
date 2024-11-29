@@ -17,7 +17,7 @@ import { colors, spacings, theme, typography } from "./visual";
 import { createLangService, updateRootFileCode } from "./langService";
 
 import { code } from "./code";
-import { openFile } from "./file";
+import { EditorFile, openFile, writeFile } from "./file";
 import { formatCode } from "./formating";
 
 const view = { x: 0, y: 0 };
@@ -55,14 +55,19 @@ let letterIndex = 0;
 type Mode = "normal" | "insert";
 let mode: Mode = "normal";
 
-let myCode = code;
-
 let languageService: LanguageService;
 let tokens: { text: string; type: SyntaxKind }[] = [];
 let diagnostics: Diagnostic[] = [];
 
 let offset = 0;
 const ts: any = (window as any).ts;
+
+let file: EditorFile & { isModified: boolean } = {
+    content: code,
+    name: "BUFFER",
+    handle: undefined,
+    isModified: false,
+};
 
 document.addEventListener("wheel", (e) => {
     offset += e.deltaY;
@@ -93,8 +98,8 @@ function render() {
     let x = 20;
     let y = 20;
 
-    const lineIndex = getCurrentLine(myCode, letterIndex);
-    const lineOffset = getCurrentOffset(myCode, letterIndex);
+    const lineIndex = getCurrentLine(file.content, letterIndex);
+    const lineOffset = getCurrentOffset(file.content, letterIndex);
 
     const cursorX = 20 + lineOffset * ms.width;
     const cursorY = y + lineIndex * height * lineHeight - 3;
@@ -176,14 +181,14 @@ function render() {
 
 function removeCharFromLeft() {
     if (letterIndex > 0) {
-        myCode = removeChar(myCode, letterIndex - 1);
+        file.content = removeChar(file.content, letterIndex - 1);
         letterIndex--;
         onCodeChanged();
     }
 }
 
 function removeCurrentChar() {
-    myCode = removeChar(myCode, letterIndex);
+    file.content = removeChar(file.content, letterIndex);
     onCodeChanged();
 }
 function insertStrAt(str: string, ch: string, at: number) {
@@ -191,7 +196,7 @@ function insertStrAt(str: string, ch: string, at: number) {
 }
 
 function insertChar(ch: string) {
-    myCode = insertStrAt(myCode, ch, letterIndex);
+    file.content = insertStrAt(file.content, ch, letterIndex);
     letterIndex += ch.length;
     render();
     // onCodeChanged();
@@ -212,30 +217,35 @@ function showSuggestions() {
 document.addEventListener("keydown", async (e) => {
     if (mode == "normal") {
         if (e.code == "KeyL") {
-            if (letterIndex < myCode.length) letterIndex++;
+            if (letterIndex < file.content.length) letterIndex++;
         }
         if (e.code == "KeyH") {
             if (letterIndex > 0) letterIndex--;
         }
         if (e.code == "KeyJ") {
-            letterIndex = moveCursorDownOneLine(myCode, letterIndex);
+            letterIndex = moveCursorDownOneLine(file.content, letterIndex);
         }
         if (e.code == "KeyK") {
-            letterIndex = moveCursorUpOneLine(myCode, letterIndex);
+            letterIndex = moveCursorUpOneLine(file.content, letterIndex);
         }
         if (e.code == "KeyW")
-            letterIndex = jumpWordForward(myCode, letterIndex);
+            letterIndex = jumpWordForward(file.content, letterIndex);
         if (e.code == "KeyD") {
             deleteLine();
         }
         if (e.code == "KeyR") runCode();
-        if (e.code == "KeyB") letterIndex = jumpWordBack(myCode, letterIndex);
+        if (e.code == "KeyB")
+            letterIndex = jumpWordBack(file.content, letterIndex);
 
         if (e.code == "KeyI") mode = "insert";
         if (e.code == "KeyX") removeCurrentChar();
         if (e.code == "Backspace") removeCharFromLeft();
         if (e.code == "Enter") insertChar("\n");
         if (e.code == "Space") insertChar(" ");
+        if (e.code == "KeyS" && e.metaKey) {
+            e.preventDefault();
+            saveFile();
+        }
         if (e.code == "KeyO" && e.metaKey) {
             e.preventDefault();
             loadFile();
@@ -270,10 +280,10 @@ document.addEventListener("keydown", async (e) => {
                         const length = edit.span.length;
 
                         // Replace the text in the source code
-                        myCode =
-                            myCode.slice(0, start) +
+                        file.content =
+                            file.content.slice(0, start) +
                             edit.newText +
-                            myCode.slice(start + length);
+                            file.content.slice(start + length);
                     });
                     onCodeChanged();
                 });
@@ -286,9 +296,9 @@ document.addEventListener("keydown", async (e) => {
         if (e.code == "Enter") insertChar("\n");
         else if (e.code == "Escape") {
             mode = "normal";
-            const res = await formatCode(myCode, letterIndex);
+            const res = await formatCode(file.content, letterIndex);
             if (res) {
-                myCode = res.formatted;
+                file.content = res.formatted;
                 letterIndex = res.cursorOffset;
                 onCodeChanged();
             }
@@ -298,7 +308,7 @@ document.addEventListener("keydown", async (e) => {
             showSuggestions();
         } else if (e.key.length == 1) {
             insertChar(e.key);
-            tokens = tokenizeCode(myCode);
+            tokens = tokenizeCode(file.content);
         }
     }
     render();
@@ -333,7 +343,7 @@ async function start() {
     ctx.fillStyle = theme[SyntaxKind.StringKeyword]!;
     ctx.fillText("Loading...", view.x / 2, view.y / 2);
 
-    languageService = await createLangService(myCode);
+    languageService = await createLangService(file.content);
 
     updateModel();
 
@@ -347,7 +357,7 @@ start();
 function updateModel() {
     const diagnosticStart = performance.now();
     diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
-    tokens = tokenizeCode(myCode);
+    tokens = tokenizeCode(file.content);
 
     logPerfResult("Diagnostic", diagnosticStart);
     render();
@@ -355,26 +365,35 @@ function updateModel() {
 
 function onCodeChanged() {
     const start = performance.now();
-    updateRootFileCode(myCode);
+    updateRootFileCode(file.content);
 
     updateModel();
+    file.isModified = true;
 
     logPerfResult("Update", start);
 }
 
 function showFooter() {
-    const line = getCurrentLine(myCode, letterIndex);
-    const lineOffset = getCurrentOffset(myCode, letterIndex);
+    ctx.save();
+
+    const line = getCurrentLine(file.content, letterIndex);
+    const lineOffset = getCurrentOffset(file.content, letterIndex);
 
     ctx.fillStyle = "#222222";
     ctx.fillRect(0, view.y - 20, view.x, 20);
 
     ctx.fillStyle = "#aaaaaa";
-    let charAt = myCode[letterIndex];
+    let charAt = file.content[letterIndex];
     charAt = charAt == "\n" ? "\\n" : charAt;
     // const label = `${letterIndex} ${line}:${lineOffset} char('${charAt}')`;
     const label = `${line}:${lineOffset}`;
     ctx.fillText(label, 20, view.y - 20 + 4);
+
+    ctx.fillStyle = file.isModified && file.handle ? "red" : "green";
+    ctx.textAlign = "right";
+    ctx.fillText(file.name, view.x - 20, view.y - 20 + 4);
+
+    ctx.restore();
 }
 
 function logPerfResult(label: string, startTime: number) {
@@ -391,33 +410,38 @@ function runCode() {
 
 function insertLineBefore() {
     const currentLineStart =
-        letterIndex == 0 ? 0 : myCode.lastIndexOf("\n", letterIndex - 1) + 1;
+        letterIndex == 0
+            ? 0
+            : file.content.lastIndexOf("\n", letterIndex - 1) + 1;
 
-    myCode = insertStrAt(myCode, "\n", currentLineStart);
+    file.content = insertStrAt(file.content, "\n", currentLineStart);
     letterIndex = currentLineStart;
 
     mode = "insert";
-    tokens = tokenizeCode(myCode);
+    tokens = tokenizeCode(file.content);
 }
 
 function insertLineAfter() {
-    let currentLineEnd = myCode.indexOf("\n", letterIndex);
-    if (currentLineEnd == -1) currentLineEnd = myCode.length;
+    let currentLineEnd = file.content.indexOf("\n", letterIndex);
+    if (currentLineEnd == -1) currentLineEnd = file.content.length;
 
-    myCode = insertStrAt(myCode, "\n", currentLineEnd);
+    file.content = insertStrAt(file.content, "\n", currentLineEnd);
     letterIndex = currentLineEnd + 1;
 
     mode = "insert";
-    tokens = tokenizeCode(myCode);
+    tokens = tokenizeCode(file.content);
 }
 
 function deleteLine() {
     const currentLineStart =
-        letterIndex == 0 ? 0 : myCode.lastIndexOf("\n", letterIndex - 1) + 1;
-    const currentLineEnd = myCode.indexOf("\n", letterIndex);
+        letterIndex == 0
+            ? 0
+            : file.content.lastIndexOf("\n", letterIndex - 1) + 1;
+    const currentLineEnd = file.content.indexOf("\n", letterIndex);
 
-    myCode =
-        myCode.slice(0, currentLineStart) + myCode.slice(currentLineEnd + 1);
+    file.content =
+        file.content.slice(0, currentLineStart) +
+        file.content.slice(currentLineEnd + 1);
     letterIndex = currentLineStart;
 
     onCodeChanged();
@@ -426,7 +450,12 @@ function deleteLine() {
 async function loadFile() {
     const res = await openFile();
     if (res) {
-        myCode = res.content;
+        file = { ...file, ...res };
         onCodeChanged();
     }
+}
+
+async function saveFile() {
+    writeFile(file);
+    file.isModified = false;
 }
