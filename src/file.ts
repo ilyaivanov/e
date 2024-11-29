@@ -3,7 +3,6 @@ export type EditorFile = {
     handle: FileSystemFileHandle | undefined;
     content: string;
 };
-console.log(32);
 export async function openFile(): Promise<EditorFile | undefined> {
     try {
         const [fileHandle] = await window.showOpenFilePicker({

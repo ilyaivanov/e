@@ -97,4 +97,4 @@ Timeline
       - Start implementing web worker for lang service 
    ✔ Load code from the file
    ✔ Fix issue with prettier. Use formatWithCursor to preserve cursor
-   - Save code to the file 
+   ✔ Save code to the file 
