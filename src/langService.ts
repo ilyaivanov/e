@@ -1,4 +1,4 @@
-import type { Scanner, Diagnostic, createLanguageService } from "typescript";
+// import type { createLanguageService } from "typescript";
 
 const filesToLoad = [
     "lib.d.ts",
@@ -140,13 +140,15 @@ export async function createLangService(code: string) {
 
     await Promise.all(filesToLoad.map(loadFile));
 
+    //get these from tsconfig
     const compilerOptions = {
-        target: ts.ScriptTarget.ESNext,
-        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2018,
+        module: ts.ModuleKind.CommonJS,
         lib,
     };
 
-    const langService: typeof createLanguageService = ts.createLanguageService;
+    // const langService: typeof createLanguageService = ts.createLanguageService;
+    const langService: any = ts.createLanguageService;
 
     return langService({
         getScriptFileNames: () => [rootFileName],

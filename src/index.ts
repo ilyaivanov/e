@@ -10,10 +10,13 @@ import {
 
 const PERF_TIME = false;
 
-import type { Scanner, Diagnostic, LanguageService } from "typescript";
+type Scanner = any;
+type Diagnostic = any;
+type LanguageService = any;
+// import type { Scanner, Diagnostic, LanguageService } from "typescript";
 
 import { SyntaxKind } from "./localTs";
-import { colors, theme, typography } from "./visual";
+import { colors, spacings, theme, typography } from "./visual";
 import { createLangService, updateRootFileCode } from "./langService";
 import { code } from "./code";
 
@@ -77,6 +80,7 @@ function render() {
 
     const ms = ctx.measureText("f");
     const height = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
+    const letterWidth = ms.width;
     const lineHeight = 1.2;
 
     let chars = 0;
@@ -102,24 +106,37 @@ function render() {
 
     let line = 0;
 
+    function drawErrorsOnLine(lineIndex: number) {
+        const errorsOnThisLine = diagnostics.filter(
+            (e) =>
+                e.file &&
+                e.file.getLineAndCharacterOfPosition(e.start!).line == lineIndex
+        );
+
+        if (errorsOnThisLine.length > 0) {
+            const error = errorsOnThisLine[0];
+            ctx.fillStyle = colors.errors;
+            ctx.fillText(error.messageText.toString(), x + 60, y);
+
+            if (error.start && error.length && error.file) {
+                const char = error.file.getLineAndCharacterOfPosition(
+                    error.start!
+                ).character;
+                ctx.fillRect(
+                    spacings.pagePadding + char * letterWidth,
+                    y + height - 2,
+                    error.length * letterWidth,
+                    2
+                );
+            }
+        }
+    }
+
     for (let i = 0; i < tokens.length; i++) {
         const { text, type } = tokens[i];
 
         if (type == SyntaxKind.NewLineTrivia) {
-            const errorsOnThisLine = diagnostics.filter(
-                (e) =>
-                    e.file &&
-                    e.file.getLineAndCharacterOfPosition(e.start!).line == line
-            );
-
-            if (errorsOnThisLine.length > 0) {
-                ctx.fillStyle = colors.errors;
-                ctx.fillText(
-                    errorsOnThisLine[0].messageText.toString(),
-                    x + 60,
-                    y
-                );
-            }
+            drawErrorsOnLine(line);
             y += height * lineHeight;
             x = 20;
             chars += 1;
@@ -145,6 +162,8 @@ function render() {
         chars += text.length;
     }
 
+    drawErrorsOnLine(line);
+
     ctx.restore();
 
     logPerfResult("Render", start);
@@ -169,7 +188,19 @@ function insertStrAt(str: string, ch: string, at: number) {
 function insertChar(ch: string) {
     myCode = insertStrAt(myCode, ch, letterIndex);
     letterIndex += ch.length;
-    onCodeChanged();
+    render();
+    // onCodeChanged();
+}
+
+function showSuggestions() {
+    const suggestion = languageService.getCompletionsAtPosition(
+        "file.ts",
+        letterIndex,
+        {}
+    );
+    if (suggestion) {
+        console.log(suggestion.entries[0]);
+    }
 }
 
 document.addEventListener("keydown", (e) => {
@@ -201,18 +232,60 @@ document.addEventListener("keydown", (e) => {
         if (e.code == "Space") insertChar(" ");
         if (e.code == "KeyO" && e.shiftKey) insertLineBefore();
         else if (e.code == "KeyO") insertLineAfter();
-        if (e.code == "KeyS") {
-            formatCode();
+        if (e.code == "Period") {
+            const diagnostics =
+                languageService.getSemanticDiagnostics("file.ts");
+
+            console.log("Diagnostics:", diagnostics);
+
+            const position = code.indexOf("lenth"); // Finds the position of the typo
+
+            languageService.applyCodeActionCommand;
+            const fixes = languageService.getCodeFixesAtPosition(
+                "file.ts",
+                position,
+                position,
+                [diagnostics[0].code],
+                {},
+                {}
+            );
+
+            console.log("Fixes", fixes);
+
+            if (fixes.length > 0) {
+                fixes[0].changes.forEach((change: any) => {
+                    console.log(`Applying changes to file: ${change.fileName}`);
+
+                    change.textChanges.forEach((edit: any) => {
+                        const start = edit.span.start;
+                        const length = edit.span.length;
+
+                        // Replace the text in the source code
+                        myCode =
+                            myCode.slice(0, start) +
+                            edit.newText +
+                            myCode.slice(start + length);
+                    });
+                    onCodeChanged();
+                });
+            }
+        } else if (e.code == "Slash" && e.metaKey) {
+            showSuggestions();
         }
+        // if(e.code == "")
     } else if (mode == "insert") {
         if (e.code == "Enter") insertChar("\n");
-        if (e.code == "Escape") {
+        else if (e.code == "Escape") {
             mode = "normal";
             formatCode();
-        }
-        if (e.code == "Backspace") removeCharFromLeft();
-        if (e.key.length == 1) {
+            onCodeChanged();
+        } else if (e.code == "Backspace") removeCharFromLeft();
+        //Period and meta are not working
+        else if (e.code == "Slash" && e.metaKey) {
+            showSuggestions();
+        } else if (e.key.length == 1) {
             insertChar(e.key);
+            tokens = tokenizeCode(myCode);
         }
     }
     render();
@@ -258,19 +331,13 @@ async function start() {
 
 start();
 
-let timeout: NodeJS.Timeout | undefined;
 function updateModel() {
-    if (timeout) clearTimeout(timeout);
-
-    timeout = setTimeout(() => {
-        const diagnosticStart = performance.now();
-        diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
-
-        logPerfResult("Diagnostic", diagnosticStart);
-        render();
-        timeout = undefined;
-    }, 300);
+    const diagnosticStart = performance.now();
+    diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
     tokens = tokenizeCode(myCode);
+
+    logPerfResult("Diagnostic", diagnosticStart);
+    render();
 }
 
 function onCodeChanged() {
@@ -335,16 +402,18 @@ function insertLineBefore() {
     letterIndex = currentLineStart;
 
     mode = "insert";
-    updateModel();
+    tokens = tokenizeCode(myCode);
 }
 
 function insertLineAfter() {
-    const currentLineEnd = myCode.indexOf("\n", letterIndex);
+    let currentLineEnd = myCode.indexOf("\n", letterIndex);
+    if (currentLineEnd == -1) currentLineEnd = myCode.length;
+
     myCode = insertStrAt(myCode, "\n", currentLineEnd);
     letterIndex = currentLineEnd + 1;
 
     mode = "insert";
-    updateModel();
+    tokens = tokenizeCode(myCode);
 }
 
 function deleteLine() {
@@ -356,5 +425,5 @@ function deleteLine() {
         myCode.slice(0, currentLineStart) + myCode.slice(currentLineEnd + 1);
     letterIndex = currentLineStart;
 
-    updateModel();
+    onCodeChanged();
 }

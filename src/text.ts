@@ -15,7 +15,7 @@ export function getCurrentLine(code: string, currentPos: number) {
 export function getCurrentOffset(code: string, currentPos: number) {
     const lastNewlineIndex = code.lastIndexOf("\n", currentPos - 1);
 
-    return currentPos - lastNewlineIndex - 1;
+    return Math.max(currentPos - lastNewlineIndex - 1, 0);
 }
 
 export function moveCursorDownOneLine(

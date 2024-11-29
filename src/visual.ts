@@ -120,10 +120,19 @@ export const colors = {
     type: "#4ec9b0",
     accentKeyword: "rgb(197, 134, 192)",
     functionName: "#dcdcaa",
+
+    string: "#ce9178",
 };
 
 export const theme: Partial<Record<SyntaxKind, string>> = {
-    [SyntaxKind.StringLiteral]: "#ce9178", // Strings
+    [SyntaxKind.StringLiteral]: colors.string,
+    [SyntaxKind.TemplateExpression]: "blue",
+    [SyntaxKind.TemplateHead]: colors.string,
+    [SyntaxKind.TemplateLiteralType]: colors.string,
+    [SyntaxKind.TemplateLiteralTypeSpan]: "blue",
+    [SyntaxKind.TemplateMiddle]: "blue",
+    [SyntaxKind.TemplateSpan]: "blue",
+    [SyntaxKind.TemplateTail]: "blue",
     [SyntaxKind.NumericLiteral]: "#b5cea8", // Numbers
     [SyntaxKind.Identifier]: "#9cdcfe", // Variables and functions
     // [SyntaxKind.FunctionDeclaration]: "red", // Function names

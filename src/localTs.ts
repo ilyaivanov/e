@@ -1,6 +1,6 @@
 // I've copied this from typescript module because I don't want to import it
 // and TS doesn't allow me to use import type { SyntaxKind } from "typescript"
-export enum SyntaxKind {
+export const enum SyntaxKind {
     Unknown = 0,
     EndOfFileToken = 1,
     SingleLineCommentTrivia = 2,

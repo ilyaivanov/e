@@ -73,14 +73,22 @@ Timeline
    ✔ d to remove current line
 
  
- Week 48
+ Week 48 
   Goals 
-   - Complete integration with TS compiler, namely
+   - Further integration with TS compiler, namely
      - Go to definition
      - Auto-suggestions
      - Go throught errors
      - Auto-import
-   - Suport projects with multiple files. Sync code with fs
+   - Suport projects with multiple files. Sync code with file system
 
   25.11.2024 
-   - Add ability to compile via ESNext
+   ✔ Add ability to compile via ESNext
+   𐄂 Checking if I need to extract lang service into ServiceWorker
+   - Working on resolving ts errors
+  
+  26.11.2024
+   ✔ Apply code fix for errors
+
+  27.11.2024
+   - 
