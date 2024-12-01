@@ -5,20 +5,24 @@ import {
     jumpWordForward,
     moveCursorDownOneLine,
     moveCursorUpOneLine,
+    moveLine,
     removeChar,
 } from "./text";
 
 const PERF_TIME = false;
 
-import type { Scanner, LanguageService } from "typescript";
-
-import { SyntaxKind } from "./localTs";
 import { colors, spacings, theme, typography } from "./visual";
 
 import { code } from "./code";
-import { EditorFile, openFile, writeFile } from "./file";
-import { formatCode } from "./formating";
+import { EditorFile, openFile, writeFile } from "./utils/file";
+import { formatCode } from "./utils/formating";
 import type { Diagnostic, WorkerResult } from "./ts/worker";
+import {
+    createScanner,
+    Scanner,
+    ScriptTarget,
+    SyntaxKind,
+} from "../ts/typescriptServices";
 
 const view = { x: 0, y: 0 };
 const canvas = document.createElement("canvas");
@@ -77,7 +81,7 @@ let tokens: { text: string; type: SyntaxKind }[] = [];
 let diagnostics: Diagnostic[] = [];
 
 let offset = 0;
-const ts: any = (window as any).ts;
+// const ts: any = (window as any).ts;
 
 let file: EditorFile & { isModified: boolean } = {
     content: code,
@@ -240,10 +244,21 @@ document.addEventListener("keydown", async (e) => {
         if (e.code == "KeyH") {
             if (letterIndex > 0) letterIndex--;
         }
-        if (e.code == "KeyJ") {
+        if (e.code == "KeyJ" && e.metaKey) {
+            const res = moveLine(file.content, letterIndex, "down");
+            file.content = res.code;
+            letterIndex = res.position;
+            await formatMyCode();
+            onCodeChanged();
+        } else if (e.code == "KeyK" && e.metaKey) {
+            const res = moveLine(file.content, letterIndex, "up");
+            file.content = res.code;
+            letterIndex = res.position;
+            await formatMyCode();
+            onCodeChanged();
+        } else if (e.code == "KeyJ") {
             letterIndex = moveCursorDownOneLine(file.content, letterIndex);
-        }
-        if (e.code == "KeyK") {
+        } else if (e.code == "KeyK") {
             letterIndex = moveCursorUpOneLine(file.content, letterIndex);
         }
         if (e.code == "KeyW")
@@ -307,13 +322,10 @@ document.addEventListener("keydown", async (e) => {
         if (e.code == "Enter") insertChar("\n");
         else if (e.code == "Escape") {
             mode = "normal";
-            const res = await formatCode(file.content, letterIndex);
-            if (res) {
-                file.content = res.formatted;
-                letterIndex = res.cursorOffset;
-                tsWorker.postMessage({ type: "diagnostic", file });
-                onCodeChanged();
-            }
+            formatMyCode();
+
+            tsWorker.postMessage({ type: "diagnostic", file });
+            onCodeChanged();
         } else if (e.code == "Backspace") removeCharFromLeft();
         //Period and meta are not working
         else if (e.code == "Slash" && e.metaKey) {
@@ -326,14 +338,22 @@ document.addEventListener("keydown", async (e) => {
     render();
 });
 
+async function formatMyCode() {
+    const res = await formatCode(file.content, letterIndex);
+    if (res) {
+        file.content = res.formatted;
+        letterIndex = res.cursorOffset;
+    }
+}
+
 function tokenizeCode(code: string) {
     tokens = [];
-    const scanner: Scanner = ts.createScanner(ts.ScriptTarget.Latest, false);
+    const scanner: Scanner = createScanner(ScriptTarget.Latest, false);
 
     scanner.setText(code);
 
     let token = scanner.scan();
-    while (token !== ts.SyntaxKind.EndOfFileToken) {
+    while (token !== SyntaxKind.EndOfFileToken) {
         tokens.push({
             text: scanner.getTokenText(),
             type: token as unknown as SyntaxKind,
@@ -359,7 +379,7 @@ async function start() {
 
     // languageService = await createLangService(file.content);
 
-    updateModel();
+    onCodeChanged();
 
     logPerfResult("Init", initStart);
 
@@ -368,23 +388,24 @@ async function start() {
 
 start();
 
-function updateModel() {
-    const diagnosticStart = performance.now();
-    // diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
-    tokens = tokenizeCode(file.content);
+// function updateModel() {
+//     const diagnosticStart = performance.now();
+//     // diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
+//     tokens = tokenizeCode(file.content);
 
-    logPerfResult("Diagnostic", diagnosticStart);
-    render();
-}
+//     logPerfResult("Diagnostic", diagnosticStart);
+//     render();
+// }
 
 function onCodeChanged() {
-    const start = performance.now();
+    // const start = performance.now();
     // updateRootFileCode(file.content);
 
-    updateModel();
+    tokens = tokenizeCode(file.content);
     file.isModified = true;
 
-    logPerfResult("Update", start);
+    // logPerfResult("Update", start);
+    render();
 }
 
 function showFooter() {

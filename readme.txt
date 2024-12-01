@@ -103,3 +103,5 @@ Timeline
 
   01.12.2024
    ✔ Integrate web worker with diagnostic messages
+   ✔ Have a sandbox where you can write TS and execute it immediatelly in the browser next to it
+   ✔ Remove static dependency on typescript. Import lib.**.d.ts files via node script

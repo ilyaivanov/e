@@ -72,11 +72,6 @@ module.exports = (env, argv) => {
                     patterns: [
                         { from: "public/manifest.json", to: "." },
                         { from: "public/favicon.svg", to: "." },
-                        {
-                            from: "node_modules/typescript/lib/lib.*",
-                            to: "lib/[name][ext]",
-                        },
-                        { from: "lib", to: "./dep" },
                     ],
                 }),
                 new HtmlWebpackPlugin({

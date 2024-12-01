@@ -1,3 +1,4 @@
+import { libFiles } from "../../ts/lib";
 import {
     CompilerOptions,
     createLanguageService,
@@ -7,7 +8,6 @@ import {
     ScriptSnapshot,
     ScriptTarget,
 } from "../../ts/typescriptServices";
-import { filesToLoad } from "./lib";
 
 let languageService: LanguageService | undefined;
 
@@ -83,11 +83,11 @@ function hasFile(filename: string) {
     return files.has(mapFile(filename));
 }
 
-async function loadFile(name: string) {
-    const res = await fetch("./lib/" + name);
+// async function loadFile(name: string) {
+//     const res = await fetch("./lib/" + name);
 
-    setFile(name, await res.text());
-}
+//     setFile(name, await res.text());
+// }
 
 function updateRootFileCode(code: string) {
     const info = getFile(rootFileName)!;
@@ -105,9 +105,13 @@ function mapFile(filename: string) {
 }
 
 async function createLangService(code: string) {
+    for (const fileKey of Object.keys(libFiles)) {
+        files.set(fileKey, { content: libFiles[fileKey], version: 0 });
+    }
+
     setFile(rootFileName, code);
 
-    await Promise.all(filesToLoad.map(loadFile));
+    // await Promise.all(filesToLoad.map(loadFile));
 
     //get these from tsconfig
     const compilerOptions: CompilerOptions = {

@@ -23,7 +23,7 @@ const TYPESCRIPT_LIB_DESTINATION = path.join(REPO_ROOT, "ts");
     } catch (err) {
         fs.mkdirSync(TYPESCRIPT_LIB_DESTINATION);
     }
-    // importLibs();
+    importLibs();
 
     // const npmLsOutput = JSON.parse(
     //     child_process
@@ -72,6 +72,7 @@ var module = { exports: {} };
         `
 // MONACOCHANGE
 export var createClassifier = ts.createClassifier;
+export var createScanner = ts.createScanner;
 export var createLanguageService = ts.createLanguageService;
 export var getPreEmitDiagnostics = ts.getPreEmitDiagnostics;
 export var displayPartsToString = ts.displayPartsToString;
@@ -79,6 +80,7 @@ export var EndOfLineState = ts.EndOfLineState;
 export var flattenDiagnosticMessageText = ts.flattenDiagnosticMessageText;
 export var IndentStyle = ts.IndentStyle;
 export var ScriptKind = ts.ScriptKind;
+export var SyntaxKind = ts.SyntaxKind;
 export var ScriptTarget = ts.ScriptTarget;
 export var ScriptSnapshot = ts.ScriptSnapshot;
 export var TokenClass = ts.TokenClass;
@@ -100,112 +102,106 @@ export var ModuleKind = ts.ModuleKind;
     );
 })();
 
-// function importLibs() {
-//     function readLibFile(name: string) {
-//         const srcPath = path.join(TYPESCRIPT_LIB_SOURCE, name);
-//         return fs.readFileSync(srcPath).toString();
-//     }
+function importLibs() {
+    function readLibFile(name: string) {
+        const srcPath = path.join(TYPESCRIPT_LIB_SOURCE, name);
+        return fs.readFileSync(srcPath).toString();
+    }
 
-//     let strLibResult = `/*---------------------------------------------------------------------------------------------
-//  *  Copyright (c) Microsoft Corporation. All rights reserved.
-//  *  Licensed under the MIT License. See License.txt in the project root for license information.
-//  *--------------------------------------------------------------------------------------------*/
-// ${generatedNote}
+    let strLibResult = `${generatedNote}
+export const libFiles: Record<string, string> = {}
+`;
+    //     let strIndexResult = `/*---------------------------------------------------------------------------------------------
+    //  *  Copyright (c) Microsoft Corporation. All rights reserved.
+    //  *  Licensed under the MIT License. See License.txt in the project root for license information.
+    //  *--------------------------------------------------------------------------------------------*/
+    // ${generatedNote}
 
-// /** Contains all the lib files */
-// export const libFileMap: Record<string, string> = {}
-// `;
-//     let strIndexResult = `/*---------------------------------------------------------------------------------------------
-//  *  Copyright (c) Microsoft Corporation. All rights reserved.
-//  *  Licensed under the MIT License. See License.txt in the project root for license information.
-//  *--------------------------------------------------------------------------------------------*/
-// ${generatedNote}
+    // /** Contains all the lib files */
+    // export const libFileSet: Record<string, boolean> = {}
+    // `;
+    const dtsFiles = fs
+        .readdirSync(TYPESCRIPT_LIB_SOURCE)
+        .filter((f) => f.includes("lib."));
+    while (dtsFiles.length > 0) {
+        const name = dtsFiles.shift()!;
+        const output = readLibFile(name).replace(/\r\n/g, "\n");
+        strLibResult += `libFiles['${name}'] = "${escapeText(output)}";\n`;
+        // strIndexResult += `libFileSet['${name}'] = true;\n`;
+    }
 
-// /** Contains all the lib files */
-// export const libFileSet: Record<string, boolean> = {}
-// `;
-//     const dtsFiles = fs
-//         .readdirSync(TYPESCRIPT_LIB_SOURCE)
-//         .filter((f) => f.includes("lib."));
-//     while (dtsFiles.length > 0) {
-//         const name = dtsFiles.shift()!;
-//         const output = readLibFile(name).replace(/\r\n/g, "\n");
-//         strLibResult += `libFileMap['${name}'] = "${escapeText(output)}";\n`;
-//         strIndexResult += `libFileSet['${name}'] = true;\n`;
-//     }
+    fs.writeFileSync(
+        path.join(TYPESCRIPT_LIB_DESTINATION, "lib.ts"),
+        strLibResult
+    );
+    // fs.writeFileSync(
+    //     path.join(TYPESCRIPT_LIB_DESTINATION, "lib.index.ts"),
+    //     strIndexResult
+    // );
+}
 
-//     fs.writeFileSync(
-//         path.join(TYPESCRIPT_LIB_DESTINATION, "lib.ts"),
-//         strLibResult
-//     );
-//     fs.writeFileSync(
-//         path.join(TYPESCRIPT_LIB_DESTINATION, "lib.index.ts"),
-//         strIndexResult
-//     );
-// }
+/**
+ * Escape text such that it can be used in a javascript string enclosed by double quotes (")
+ */
+function escapeText(text: string) {
+    // See http://www.javascriptkit.com/jsref/escapesequence.shtml
+    const _backspace = "\b".charCodeAt(0);
+    const _formFeed = "\f".charCodeAt(0);
+    const _newLine = "\n".charCodeAt(0);
+    const _nullChar = 0;
+    const _carriageReturn = "\r".charCodeAt(0);
+    const _tab = "\t".charCodeAt(0);
+    const _verticalTab = "\v".charCodeAt(0);
+    const _backslash = "\\".charCodeAt(0);
+    const _doubleQuote = '"'.charCodeAt(0);
 
-// /**
-//  * Escape text such that it can be used in a javascript string enclosed by double quotes (")
-//  */
-// function escapeText(text: string) {
-//     // See http://www.javascriptkit.com/jsref/escapesequence.shtml
-//     const _backspace = "\b".charCodeAt(0);
-//     const _formFeed = "\f".charCodeAt(0);
-//     const _newLine = "\n".charCodeAt(0);
-//     const _nullChar = 0;
-//     const _carriageReturn = "\r".charCodeAt(0);
-//     const _tab = "\t".charCodeAt(0);
-//     const _verticalTab = "\v".charCodeAt(0);
-//     const _backslash = "\\".charCodeAt(0);
-//     const _doubleQuote = '"'.charCodeAt(0);
+    const len = text.length;
+    let startPos = 0;
+    let chrCode;
+    let replaceWith = null;
+    let resultPieces = [];
 
-//     const len = text.length;
-//     let startPos = 0;
-//     let chrCode;
-//     let replaceWith = null;
-//     let resultPieces = [];
-
-//     for (let i = 0; i < len; i++) {
-//         chrCode = text.charCodeAt(i);
-//         switch (chrCode) {
-//             case _backspace:
-//                 replaceWith = "\\b";
-//                 break;
-//             case _formFeed:
-//                 replaceWith = "\\f";
-//                 break;
-//             case _newLine:
-//                 replaceWith = "\\n";
-//                 break;
-//             case _nullChar:
-//                 replaceWith = "\\0";
-//                 break;
-//             case _carriageReturn:
-//                 replaceWith = "\\r";
-//                 break;
-//             case _tab:
-//                 replaceWith = "\\t";
-//                 break;
-//             case _verticalTab:
-//                 replaceWith = "\\v";
-//                 break;
-//             case _backslash:
-//                 replaceWith = "\\\\";
-//                 break;
-//             case _doubleQuote:
-//                 replaceWith = '\\"';
-//                 break;
-//         }
-//         if (replaceWith !== null) {
-//             resultPieces.push(text.substring(startPos, i));
-//             resultPieces.push(replaceWith);
-//             startPos = i + 1;
-//             replaceWith = null;
-//         }
-//     }
-//     resultPieces.push(text.substring(startPos, len));
-//     return resultPieces.join("");
-// }
+    for (let i = 0; i < len; i++) {
+        chrCode = text.charCodeAt(i);
+        switch (chrCode) {
+            case _backspace:
+                replaceWith = "\\b";
+                break;
+            case _formFeed:
+                replaceWith = "\\f";
+                break;
+            case _newLine:
+                replaceWith = "\\n";
+                break;
+            case _nullChar:
+                replaceWith = "\\0";
+                break;
+            case _carriageReturn:
+                replaceWith = "\\r";
+                break;
+            case _tab:
+                replaceWith = "\\t";
+                break;
+            case _verticalTab:
+                replaceWith = "\\v";
+                break;
+            case _backslash:
+                replaceWith = "\\\\";
+                break;
+            case _doubleQuote:
+                replaceWith = '\\"';
+                break;
+        }
+        if (replaceWith !== null) {
+            resultPieces.push(text.substring(startPos, i));
+            resultPieces.push(replaceWith);
+            startPos = i + 1;
+            replaceWith = null;
+        }
+    }
+    resultPieces.push(text.substring(startPos, len));
+    return resultPieces.join("");
+}
 
 function stripSourceMaps(str: string) {
     return str.replace(/\/\/# sourceMappingURL[^\n]+/gm, "");

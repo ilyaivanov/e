@@ -1,4 +1,4 @@
-import { SyntaxKind } from "./localTs";
+import { SyntaxKind } from "../ts/typescriptServices";
 
 export const spacings = {
     pagePadding: 20,
