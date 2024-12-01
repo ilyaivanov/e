@@ -1,4 +1,5 @@
-build
-node_modules
-package-lock.json
-lib
+/build
+/node_modules
+/package-lock.json
+/lib
+/ts

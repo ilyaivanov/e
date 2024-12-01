@@ -1,2 +1,3 @@
-export const code = `const label: string = "hello world";
-console.log(label);`;
+export const code = `const elem = document.createElement("div");
+elem.innerText = "Hello World";
+document.body.appendChild(elem);`;

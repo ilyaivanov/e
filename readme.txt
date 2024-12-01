@@ -10,7 +10,7 @@ Global topics
 
 Problems
  - I don't know how to parse html/css + other code like C, GLSL, C++ (god forbid)
- - I need to figure out how to add typpes from npm packages (@types/react, etc)
+ - I need to figure out how to add typpes from npm packages (@types/react, etc). Consider using typeRoots option in compiler options
  - Do I need Desktop App (Electron/Tauri) or I can fit this into a PWA
     - Main concert for this is file system access. For PWA you need permission each time you launch app
 
@@ -98,3 +98,8 @@ Timeline
    ✔ Load code from the file
    ✔ Fix issue with prettier. Use formatWithCursor to preserve cursor
    ✔ Save code to the file 
+   - Found https://github.com/microsoft/monaco-editor/blob/main/build/importTypescript.ts 
+     - this generates typescript script for worker
+
+  01.12.2024
+   ✔ Integrate web worker with diagnostic messages

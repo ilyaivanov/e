@@ -10,15 +10,15 @@ import {
 
 const PERF_TIME = false;
 
-import type { Scanner, Diagnostic, LanguageService } from "typescript";
+import type { Scanner, LanguageService } from "typescript";
 
 import { SyntaxKind } from "./localTs";
 import { colors, spacings, theme, typography } from "./visual";
-import { createLangService, updateRootFileCode } from "./langService";
 
 import { code } from "./code";
 import { EditorFile, openFile, writeFile } from "./file";
 import { formatCode } from "./formating";
+import type { Diagnostic, WorkerResult } from "./ts/worker";
 
 const view = { x: 0, y: 0 };
 const canvas = document.createElement("canvas");
@@ -26,6 +26,23 @@ document.body.appendChild(canvas);
 
 const ctx = canvas.getContext("2d")!;
 let scale = window.devicePixelRatio || 1;
+
+const tsWorker = new Worker("./worker.js");
+
+const iframe = document.getElementById("preview")! as HTMLIFrameElement;
+const doc = iframe.contentDocument!;
+
+const style = doc.createElement("style");
+style.innerHTML = `body{background-color: black; color: white; margin: 0;}`;
+doc.head.appendChild(style);
+
+function runJsCode(code: string) {
+    doc.body.replaceChildren();
+
+    const scriptTag = doc.createElement("script");
+    scriptTag.textContent = code;
+    doc.body.appendChild(scriptTag);
+}
 
 function onResize() {
     scale = window.devicePixelRatio || 1;
@@ -55,7 +72,7 @@ let letterIndex = 0;
 type Mode = "normal" | "insert";
 let mode: Mode = "normal";
 
-let languageService: LanguageService;
+// let languageService: LanguageService;
 let tokens: { text: string; type: SyntaxKind }[] = [];
 let diagnostics: Diagnostic[] = [];
 
@@ -72,6 +89,16 @@ let file: EditorFile & { isModified: boolean } = {
 document.addEventListener("wheel", (e) => {
     offset += e.deltaY;
     render();
+});
+
+tsWorker.addEventListener("message", (e: { data: WorkerResult }) => {
+    if (e.data.type == "diagnostic") {
+        diagnostics = e.data.diagnostics;
+        render();
+    } else if (e.data.type == "getCode") {
+        const code = `(function(){${e.data.code}})();`;
+        runJsCode(code);
+    }
 });
 
 function render() {
@@ -117,23 +144,16 @@ function render() {
     let line = 0;
 
     function drawErrorsOnLine(lineIndex: number) {
-        const errorsOnThisLine = diagnostics.filter(
-            (e) =>
-                e.file &&
-                e.file.getLineAndCharacterOfPosition(e.start!).line == lineIndex
-        );
+        const errorsOnThisLine = diagnostics.filter((e) => e.line == lineIndex);
 
         if (errorsOnThisLine.length > 0) {
             const error = errorsOnThisLine[0];
             ctx.fillStyle = colors.errors;
             ctx.fillText(error.messageText.toString(), x + 60, y);
 
-            if (error.start && error.length && error.file) {
-                const char = error.file.getLineAndCharacterOfPosition(
-                    error.start!
-                ).character;
+            if (error.length && error.charInLine) {
                 ctx.fillRect(
-                    spacings.pagePadding + char * letterWidth,
+                    spacings.pagePadding + error.charInLine * letterWidth,
                     y + height - 2,
                     error.length * letterWidth,
                     2
@@ -199,21 +219,19 @@ function insertChar(ch: string) {
     file.content = insertStrAt(file.content, ch, letterIndex);
     letterIndex += ch.length;
     render();
-    // onCodeChanged();
 }
 
 function showSuggestions() {
-    const suggestion = languageService.getCompletionsAtPosition(
-        "file.ts",
-        letterIndex,
-        {}
-    );
-    if (suggestion) {
-        console.log(suggestion.entries[0]);
-    }
+    // const suggestion = languageService.getCompletionsAtPosition(
+    //     "file.ts",
+    //     letterIndex,
+    //     {}
+    // );
+    // if (suggestion) {
+    //     console.log(suggestion);
+    // }
 }
 
-//TODO : open and save to a file
 document.addEventListener("keydown", async (e) => {
     if (mode == "normal") {
         if (e.code == "KeyL") {
@@ -252,42 +270,35 @@ document.addEventListener("keydown", async (e) => {
         } else if (e.code == "KeyO" && e.shiftKey) insertLineBefore();
         else if (e.code == "KeyO") insertLineAfter();
         if (e.code == "Period") {
-            const diagnostics =
-                languageService.getSemanticDiagnostics("file.ts");
-
-            console.log("Diagnostics:", diagnostics);
-
-            const position = code.indexOf("lenth"); // Finds the position of the typo
-
-            languageService.applyCodeActionCommand;
-            const fixes = languageService.getCodeFixesAtPosition(
-                "file.ts",
-                position,
-                position,
-                [diagnostics[0].code],
-                {},
-                {}
-            );
-
-            console.log("Fixes", fixes);
-
-            if (fixes.length > 0) {
-                fixes[0].changes.forEach((change: any) => {
-                    console.log(`Applying changes to file: ${change.fileName}`);
-
-                    change.textChanges.forEach((edit: any) => {
-                        const start = edit.span.start;
-                        const length = edit.span.length;
-
-                        // Replace the text in the source code
-                        file.content =
-                            file.content.slice(0, start) +
-                            edit.newText +
-                            file.content.slice(start + length);
-                    });
-                    onCodeChanged();
-                });
-            }
+            // const diagnostics =
+            //     languageService.getSemanticDiagnostics("file.ts");
+            // console.log("Diagnostics:", diagnostics);
+            // const position = code.indexOf("lenth"); // Finds the position of the typo
+            // languageService.applyCodeActionCommand;
+            // const fixes = languageService.getCodeFixesAtPosition(
+            //     "file.ts",
+            //     position,
+            //     position,
+            //     [diagnostics[0].code],
+            //     {},
+            //     {}
+            // );
+            // console.log("Fixes", fixes);
+            // if (fixes.length > 0) {
+            //     fixes[0].changes.forEach((change: any) => {
+            //         console.log(`Applying changes to file: ${change.fileName}`);
+            //         change.textChanges.forEach((edit: any) => {
+            //             const start = edit.span.start;
+            //             const length = edit.span.length;
+            //             // Replace the text in the source code
+            //             file.content =
+            //                 file.content.slice(0, start) +
+            //                 edit.newText +
+            //                 file.content.slice(start + length);
+            //         });
+            //         onCodeChanged();
+            //     });
+            // }
         } else if (e.code == "Slash" && e.metaKey) {
             showSuggestions();
         }
@@ -300,6 +311,7 @@ document.addEventListener("keydown", async (e) => {
             if (res) {
                 file.content = res.formatted;
                 letterIndex = res.cursorOffset;
+                tsWorker.postMessage({ type: "diagnostic", file });
                 onCodeChanged();
             }
         } else if (e.code == "Backspace") removeCharFromLeft();
@@ -318,7 +330,6 @@ function tokenizeCode(code: string) {
     tokens = [];
     const scanner: Scanner = ts.createScanner(ts.ScriptTarget.Latest, false);
 
-    // Initialize the scanner with the code string
     scanner.setText(code);
 
     let token = scanner.scan();
@@ -335,6 +346,9 @@ function tokenizeCode(code: string) {
 
 async function start() {
     const initStart = performance.now();
+
+    tsWorker.postMessage({ type: "init", file });
+
     ctx.font = `40px ${typography.font}`;
     ctx.textAlign = "center";
     ctx.fillStyle = colors.bg;
@@ -343,7 +357,7 @@ async function start() {
     ctx.fillStyle = theme[SyntaxKind.StringKeyword]!;
     ctx.fillText("Loading...", view.x / 2, view.y / 2);
 
-    languageService = await createLangService(file.content);
+    // languageService = await createLangService(file.content);
 
     updateModel();
 
@@ -356,7 +370,7 @@ start();
 
 function updateModel() {
     const diagnosticStart = performance.now();
-    diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
+    // diagnostics = ts.getPreEmitDiagnostics(languageService.getProgram());
     tokens = tokenizeCode(file.content);
 
     logPerfResult("Diagnostic", diagnosticStart);
@@ -365,7 +379,7 @@ function updateModel() {
 
 function onCodeChanged() {
     const start = performance.now();
-    updateRootFileCode(file.content);
+    // updateRootFileCode(file.content);
 
     updateModel();
     file.isModified = true;
@@ -387,11 +401,19 @@ function showFooter() {
     charAt = charAt == "\n" ? "\\n" : charAt;
     // const label = `${letterIndex} ${line}:${lineOffset} char('${charAt}')`;
     const label = `${line}:${lineOffset}`;
-    ctx.fillText(label, 20, view.y - 20 + 4);
+    const textY = view.y - 20 + 4;
+
+    ctx.fillText(label, 20, textY);
 
     ctx.fillStyle = file.isModified && file.handle ? "red" : "green";
     ctx.textAlign = "right";
-    ctx.fillText(file.name, view.x - 20, view.y - 20 + 4);
+    ctx.fillText(file.name, view.x - 20, textY);
+
+    if (diagnostics.length > 0) {
+        ctx.textAlign = "center";
+        ctx.fillStyle = "red";
+        ctx.fillText(`${diagnostics.length} Errors`, view.x / 2, textY);
+    }
 
     ctx.restore();
 }
@@ -402,10 +424,7 @@ function logPerfResult(label: string, startTime: number) {
 }
 
 function runCode() {
-    const res = languageService.getEmitOutput("file.ts");
-    const jsCode = res.outputFiles[0].text;
-    const code = `(function(){${jsCode}})();`;
-    eval(code);
+    tsWorker.postMessage({ type: "getCode" });
 }
 
 function insertLineBefore() {

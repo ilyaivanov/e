@@ -9,7 +9,7 @@ module.exports = (env, argv) => {
     const isProd = argv.mode === "production";
     return [
         {
-            entry: { worker: "./src/worker.ts" },
+            entry: { worker: "./src/ts/worker.ts" },
             output: {
                 path: path.resolve(__dirname, "build"),
                 filename: "worker.js",
